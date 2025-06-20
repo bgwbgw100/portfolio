@@ -5,14 +5,20 @@ import './pacman.css';
 import { ImagePlane } from './ImagePlane';
 import { Wall } from './Wall';
 import { Circle } from './Circle';
+import { useNavigate } from 'react-router-dom';
+import './pacman.css';
 
 function PacMan() {
-  const [planePosition, setPlanePosition] = useState([0, 0, -2]);
+  
+
+  const navigate = useNavigate();
+  const [planePosition, setPlanePosition] = useState([0, 0, 0]);
   const [planeXSpeed, setPlaneXSpeed] = useState(0);
   const [planeYSpeed, setPlaneYSpeed] = useState(0);
   const [planeImage, setPlaneImage]= useState('/냠냠.png')
   const [planeRotation, setPlaneRotation] = useState([0, 0, 0]);
   const [clear, setClear] = useState(false);
+  const [loding, setLoding] = useState(0);
   const [circle, setCircle] = useState([
     {
       position: [1, 0, 0],
@@ -29,16 +35,22 @@ function PacMan() {
   ]);
 
   const wallPosition = {
-    top: [0, 5, -2],
-    bottom: [0, -5, -2],
-    left: [-5, 0, -2],
-    right: [5, 0, -2],
+    top: [0, 5, 0],
+    bottom: [0, -5, 0],
+    left: [-5, 0, 0],
+    right: [5, 0, 0],
+  }
+  const maxPosition = {
+    topLeft: [-4.5, 4.5],
+    bottomLeft: [-4.5, -4.5],
+    topRight: [4.5, 4.5],
+    bottomRight: [4.5, -4.5],
   }
   const wallArgs ={
-    top: [10, 0.03, 0.03],
-    bottom: [10, 0.03, 0.03],
-    left: [0.03, 10, 0.03],
-    right: [0.03, 10, 0.03],
+    top: [10, 0.03, 0],
+    bottom: [10, 0.03, 0],
+    left: [0.03, 10, 0],
+    right: [0.03, 10, 0],
   }
 
   useEffect(() => {
@@ -95,7 +107,12 @@ function PacMan() {
 
   // setInterval을 사용하여 planePosition 업데이트
   useEffect(() => {
+   
     const interval = setInterval(() => {
+      let minDistance = Number.MAX_VALUE; // 로딩을 위한 circle의 최소 거리
+      let minPosition = [];  // 로딩을 위한 최소 거리circle의 포지션
+      let pacManCicleDistance=Number.MAX_VALUE; // 팩맨과 circle의 최소 거리
+  
       setPlanePosition((prevPosition) => {
         // 벽에 닿으면 멈춤
         if (prevPosition[0] < -4.5  ) {
@@ -118,6 +135,13 @@ function PacMan() {
             return prevPosition;
           }
         }
+        // 최소 거리 계산
+        // circle.map((circle, index) => {
+        //   const deltaX = circle.position[0] - prevPosition[0];
+        //   const deltaY = circle.position[1] - prevPosition[1];
+        //   const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        // })
         // 팩맨이 먹은경우 
         setCircle((prevCircle) => {
           
@@ -125,8 +149,10 @@ function PacMan() {
             const deltaX = circle.position[0] - prevPosition[0];
             const deltaY = circle.position[1] - prevPosition[1];
             const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-            if(distance < 0.1) {
+            
+            
+         
+            if(distance < 0.3) {
               prevCircle[index].eat = true;
               prevCircle[index].position = "";
             }
@@ -134,19 +160,66 @@ function PacMan() {
           
           return [...prevCircle];
         })
+        circle.map((circle, index) => {
+          if(circle.eat){
+            return;
+          }
+          const deltaX = circle.position[0] - prevPosition[0];
+          const deltaY = circle.position[1] - prevPosition[1];
+          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+          
+          pacManCicleDistance = Math.min(distance, pacManCicleDistance); 
+          if(distance < minDistance){
+            minDistance = distance;
+            minPosition = circle.position;
+          }
+        })
+
 
         // 모든 별이 먹혔는지 확인
         const allEaten = circle.every((circle) => circle.eat);
         if (allEaten) {
           setClear((prev)=>{
+
             if(prev){
-              return prev;
+              alert("clear")  
+              navigate("/main")
+                return prev;
             }
-            alert("clear!")
             return true;
           });
         }
-       
+
+        //거리에따른 로딩
+        let circleSize = circle.length;
+        
+        circle.map((circle, index) => {
+          if(circle.eat){
+            circleSize--;
+          }
+        })
+        const maxLoding = 100/circleSize;
+        
+        const max = (circleSize/100) 
+        const minX = minPosition[0];
+        const minY = minPosition[1];
+        let maxLan = -1;
+        Object.values(maxPosition).map((wall, index) => {
+          const maxX = wall[0];
+          const maxY = wall[1];
+          const lenX = maxX-minX;
+          const lenY = maxY-minY;
+          console.table({maxX,maxY,minX,minY})
+          const lan = Math.sqrt(lenX * lenX + lenY * lenY);
+          if(maxLan < lan){
+            maxLan = lan;
+          }
+        })
+        
+        console.table({maxLan,pacManCicleDistance})
+        const loding =Math.floor( (1-pacManCicleDistance/maxLan) * maxLoding); 
+        
+        setLoding(()=>loding);
         
         // 방향에따라 포지션 변경
         const newPosition = [...prevPosition];
@@ -154,7 +227,7 @@ function PacMan() {
         newPosition[1] += planeYSpeed; // Y축으로 속도만큼 이동
         return newPosition;
       });
-    }, 1000 / 60); // 약 60fps로 업데이트 (초당 60번)
+    }, 1000 / 30); // 약 60fps로 업데이트 (초당 60번)
 
     return () => clearInterval(interval); // 컴포넌트 언마운트 시 타이머 해제
   }, [planeXSpeed, planeYSpeed]); // planeSpeed가 변경될 때마다 setInterval이 재설정되도록 의존성 배열에 추가
@@ -170,10 +243,14 @@ function PacMan() {
       })
     }, 1000);
   }, [planeImage]);
-    
+
+
+
+
   return (
     <div id="canvas-container">
-      <Canvas>
+      <div className="loding">{loding}</div>
+      <Canvas camera={{position:[0, 0, 8]}}>
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <Suspense fallback={null}>
@@ -184,7 +261,6 @@ function PacMan() {
         <Wall position={wallPosition.bottom} args={wallArgs.bottom} /> {/* 아래쪽 벽 */}
         <Wall position={wallPosition.left} args={wallArgs.left} /> {/* 왼쪽 벽 */}
         <Wall position={wallPosition.right} args={wallArgs.right} /> {/* 오른쪽 벽 */}
-
         {circle.map((circle, index) => {
           if(circle.position){
             return (<Circle key={index} position={circle.position} />)
